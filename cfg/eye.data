@@ -1,0 +1,6 @@
+classes=2
+train  = /home/weizzh/face_detect/face_recognition/training_set/train.list
+valid  = /home/weizzh/face_detect/face_recognition/training_set/valid.list
+labels = ../data/labels.txt
+backup = backup/
+top=2
