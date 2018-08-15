@@ -1,0 +1,2 @@
+# dlib_darknet
+用dlib和darknet 分类器实现的盹睡系统，其中shape_predictor_68_face_landmarks.dat过大没有上传
