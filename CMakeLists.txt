@@ -10,7 +10,8 @@ set(source dlib_nap_project.cpp dark.c dark.h darknet.h)
 
 add_executable(dlib_nap_detection ${source})
 
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-target_link_libraries(dlib_nap_detection ${CMAKE_CURRENT_SOURCE_DIR}/libdarknet.a ${OpenCV_LIBS} dlib::dlib)
+target_link_libraries(dlib_nap_detection ${CMAKE_CURRENT_SOURCE_DIR}/libdarknet.a pthread ${OpenCV_LIBS} dlib::dlib MVSDK)
 
 
