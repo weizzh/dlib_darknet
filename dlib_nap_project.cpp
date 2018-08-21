@@ -21,7 +21,7 @@ using namespace std;
 unsigned char * g_pRgbBuffer;
 unsigned char * g_pGrayBuffer;
 
-#define DISPLAY 0
+#define DISPLAY 1
 #include <string>
 using namespace dlib;
 using namespace std;
@@ -103,19 +103,25 @@ int main()
 	deserialize("../data/shape_predictor_68_face_landmarks.dat") >> pose_model;
 	initial_network();
 
-	array2d<unsigned char> gray_image(tCapability.sResolutionRange.iWidthMax, tCapability.sResolutionRange.iHeightMax);
-	printf("make an empty gray image(%d, %d)\n",tCapability.sResolutionRange.iWidthMax, tCapability.sResolutionRange.iHeightMax);
+	array2d<unsigned char> gray_image(480, 640);
+	printf("make an empty gray image(%d, %d)\n",480, 640);
 	if(CameraGetImageBuffer(hCamera,&sFrameInfo,&pbyBuffer,50) == CAMERA_STATUS_SUCCESS)
 	{
 		printf("Get ImageBuffer Success!\n");
+		printf("The image size: %d", sFrameInfo.uBytes);
 //		memcpy(g_pGrayBuffer, pbyBuffer,tCapability.sResolutionRange.iHeightMax*tCapability.sResolutionRange.iWidthMax);
 		
-		for(i=0; i<tCapability.sResolutionRange.iHeightMax; i++)
-			for(j=0; j<tCapability.sResolutionRange.iWidthMax; j++)
+		for(i=0; i<640; i++)
+			for(j=0; j<480; j++)
 			{
-				gray_image[i][j] = *((unsigned char * )(pbyBuffer+i*tCapability.sResolutionRange.iWidthMax +j));
+				gray_image[i][j] = *((unsigned char * )(pbyBuffer+j*640 +i));
 			}
-		
+		CameraReleaseImageBuffer(hCamera,pbyBuffer);
+	}
+	else
+	{
+		printf("time out\n");
+		return;
 	}
 
 	
@@ -216,10 +222,10 @@ int main()
 			cout<< "the result is: " << result_class <<endl;		
 #if DISPLAY
 			win.clear_overlay();
-			win.set_image(cimg);
+			win.set_image(gray_image);
 			win.add_overlay(render_face_detections(shapes));
 			dlib::array<array2d<rgb_pixel> > face_chips;
-			extract_image_chips(cimg, get_face_chip_details(shapes), face_chips);
+			extract_image_chips(gray_image, get_face_chip_details(shapes), face_chips);
 			win_faces.set_image(tile_images(face_chips));
 			win_left_roi.set_image(left_roi);
 #endif			
