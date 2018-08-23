@@ -108,7 +108,9 @@ int main()
 
 	printf("make an empty gray image(%d, %d)\n",480, 640);
 	long int frame_counter = 0;
+	string roi_path = "./roi_eye/";
 	clock_t begin, mid, end;
+
 
 while(1)
 {	begin = clock();
@@ -116,6 +118,7 @@ while(1)
 	if(CameraGetImageBuffer(hCamera,&sFrameInfo,&pbyBuffer,100) == CAMERA_STATUS_SUCCESS)
 	{
 		printf("Get ImageBuffer Success!\n");
+		frame_counter ++;
 		cout << "get image: " << double( clock()-begin ) / CLOCKS_PER_SEC << endl;
 		printf("The image size: %d\n", sFrameInfo.uBytes);
 //		memcpy(g_pGrayBuffer, pbyBuffer,tCapability.sResolutionRange.iHeightMax*tCapability.sResolutionRange.iWidthMax);
@@ -188,7 +191,7 @@ while(1)
 		shapes.push_back(pose_model(gray_image_resized, dets[i]));
 	cout<< "alignment time: "  << double( clock()-mid ) / CLOCKS_PER_SEC << endl;
 	mid = clock();
-	double scale = 1.4; 
+	double scale = 2.; 
 	int LEFT_EYE = 42;
 	double center_x = 0.5 * ( shapes[0].part(LEFT_EYE + 3).x() + shapes[0].part(LEFT_EYE).x() );
 	double center_y = 0.5 * ( shapes[0].part(LEFT_EYE + 5).y() + shapes[0].part(LEFT_EYE + 1).y() );
@@ -213,8 +216,15 @@ while(1)
 //			cout<< "get the 4 points." <<endl;
 //			for( int i = 0; i<4; ++i) {cout << "the LEFT_ROI is: " << LEFT_ROI[i] <<endl;}
 //			cout << "the size of left_roi is :" << left_roi.size() << " " << left_roi.nc() << " " << left_roi.nr() <<endl;
-	extract_image_4points(gray_image_resized, left_roi, LEFT_ROI);	
+	extract_image_4points(gray_image_resized, left_roi, LEFT_ROI);
+	save_png(left_roi, roi_path+to_string(frame_counter)+".png");
 	cout << "extract image time: " << double( clock()-mid ) / CLOCKS_PER_SEC << endl;
+
+	cv::Mat cv_left_roi= toMat(left_roi);
+	cv::namedWindow("left_roi");
+	cv::imshow("left_roi", cv_left_roi);
+	cv::waitKey(20);
+
 	mid = clock();
 	float X[2352];
 	for(int chl=0; chl<3; chl ++)
