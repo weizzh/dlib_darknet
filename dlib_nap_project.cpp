@@ -21,7 +21,7 @@ using namespace std;
 unsigned char * g_pRgbBuffer;
 unsigned char * g_pGrayBuffer;
 
-#define DISPLAY 1
+#define DISPLAY 0
 #include <string>
 using namespace dlib;
 using namespace std;
@@ -68,7 +68,7 @@ int main()
 	g_pGrayBuffer = (unsigned char*)malloc(tCapability.sResolutionRange.iHeightMax*tCapability.sResolutionRange.iWidthMax);
 //
 	CameraSetAeState(hCamera, FALSE);
-    double fExposureTime = 1000;
+    double fExposureTime = 10000;
     double pfExposureTime;
     CameraSetExposureTime(hCamera, fExposureTime);
     CameraGetExposureTime(hCamera, &pfExposureTime);
@@ -104,33 +104,44 @@ int main()
 	initial_network();
 
 	array2d<unsigned char> gray_image(480, 640);
+	array2d<unsigned char> gray_image_resized(240, 320);
+
 	printf("make an empty gray image(%d, %d)\n",480, 640);
-	if(CameraGetImageBuffer(hCamera,&sFrameInfo,&pbyBuffer,50) == CAMERA_STATUS_SUCCESS)
-	{
-		printf("Get ImageBuffer Success!\n");
-		printf("The image size: %d", sFrameInfo.uBytes);
-//		memcpy(g_pGrayBuffer, pbyBuffer,tCapability.sResolutionRange.iHeightMax*tCapability.sResolutionRange.iWidthMax);
-		
-		for(i=0; i<640; i++)
-			for(j=0; j<480; j++)
-			{
-				gray_image[i][j] = *((unsigned char * )(pbyBuffer+j*640 +i));
-			}
-		CameraReleaseImageBuffer(hCamera,pbyBuffer);
-	}
-	else
-	{
-		printf("time out\n");
-		return;
-	}
-
-	
-
 	long int frame_counter = 0;
 	clock_t begin, mid, end;
 
-	begin = clock();
-	cout << "begin time: " << begin <<endl;
+while(1)
+{	begin = clock();
+	printf("try to get Image buffer...");
+	if(CameraGetImageBuffer(hCamera,&sFrameInfo,&pbyBuffer,100) == CAMERA_STATUS_SUCCESS)
+	{
+		printf("Get ImageBuffer Success!\n");
+		cout << "get image: " << double( clock()-begin ) / CLOCKS_PER_SEC << endl;
+		printf("The image size: %d\n", sFrameInfo.uBytes);
+//		memcpy(g_pGrayBuffer, pbyBuffer,tCapability.sResolutionRange.iHeightMax*tCapability.sResolutionRange.iWidthMax);
+		
+		for(i=0; i<480; i++)
+			for(j=0; j<640; j++)
+			{
+				gray_image[i][j] = *((unsigned char * )(pbyBuffer+i*640 +j));
+			}
+		CameraReleaseImageBuffer(hCamera, pbyBuffer);
+		
+	}
+	else
+	{
+		printf("time out, fail to get image\n");
+		return -1;	
+	}
+	resize_image(gray_image, gray_image_resized);
+	cv::Mat cv_img=toMat(gray_image_resized);
+	cv::namedWindow("temp");
+	cv::imshow("temp", cv_img);
+	cv::waitKey(10);
+
+
+
+
 /*
 	cv::Mat temp,resized,resized_gray;
 	if(!cap.read(temp))
@@ -160,7 +171,7 @@ int main()
 	array2d<unsigned char> left_roi(28, 28);
 //			cout <<"set image size." << endl;
 	std::vector<rectangle> dets;
-	dets = detector(gray_image);
+	dets = detector(gray_image_resized);
 	cout << "detect time: " << double( clock()-mid ) / CLOCKS_PER_SEC << endl;
 	mid = clock();
 	std::vector<full_object_detection> shapes;
@@ -171,10 +182,10 @@ int main()
 		cout << "total time: "<< double(end - begin)/CLOCKS_PER_SEC << end <<endl;
 		
 		cout << "FPS: " << CLOCKS_PER_SEC / double(end - begin) << endl;					
-		return -1;
+		continue;
 	}
 	for(unsigned long i =0; i<dets.size(); ++i)
-		shapes.push_back(pose_model(gray_image, dets[i]));
+		shapes.push_back(pose_model(gray_image_resized, dets[i]));
 	cout<< "alignment time: "  << double( clock()-mid ) / CLOCKS_PER_SEC << endl;
 	mid = clock();
 	double scale = 1.4; 
@@ -202,7 +213,7 @@ int main()
 //			cout<< "get the 4 points." <<endl;
 //			for( int i = 0; i<4; ++i) {cout << "the LEFT_ROI is: " << LEFT_ROI[i] <<endl;}
 //			cout << "the size of left_roi is :" << left_roi.size() << " " << left_roi.nc() << " " << left_roi.nr() <<endl;
-	extract_image_4points(gray_image, left_roi, LEFT_ROI);	
+	extract_image_4points(gray_image_resized, left_roi, LEFT_ROI);	
 	cout << "extract image time: " << double( clock()-mid ) / CLOCKS_PER_SEC << endl;
 	mid = clock();
 	float X[2352];
@@ -222,15 +233,16 @@ int main()
 			cout<< "the result is: " << result_class <<endl;		
 #if DISPLAY
 			win.clear_overlay();
-			win.set_image(gray_image);
+			win.set_image(gray_image_resized);
 			win.add_overlay(render_face_detections(shapes));
 			dlib::array<array2d<rgb_pixel> > face_chips;
-			extract_image_chips(gray_image, get_face_chip_details(shapes), face_chips);
+			extract_image_chips(gray_image_resized, get_face_chip_details(shapes), face_chips);
 			win_faces.set_image(tile_images(face_chips));
 			win_left_roi.set_image(left_roi);
 #endif			
 			end = clock();
 			cout << "total time: " << double(end - begin)/CLOCKS_PER_SEC <<endl; 
-			cout << "FPS: " << CLOCKS_PER_SEC / double(end - begin) << endl;	
+			cout << "FPS: " << CLOCKS_PER_SEC / double(end - begin) << endl;
+}	
 
 }
