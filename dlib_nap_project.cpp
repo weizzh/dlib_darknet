@@ -21,7 +21,8 @@ using namespace std;
 unsigned char * g_pRgbBuffer;
 unsigned char * g_pGrayBuffer;
 
-#define DISPLAY 0
+#define DISPLAY 1
+
 #include <string>
 using namespace dlib;
 using namespace std;
@@ -46,9 +47,7 @@ int main()
 			return 1;
 		}	
 */
-#if DISPLAY
-	image_window win, win_faces, win_left_roi;
-#endif
+
 	CameraSdkInit(1);
 	CameraEnumerateDevice(tCameraEnumList,&iCameraCounts);
 	printf("iCameralCounts = %d\n", iCameraCounts);
@@ -68,7 +67,7 @@ int main()
 	g_pGrayBuffer = (unsigned char*)malloc(tCapability.sResolutionRange.iHeightMax*tCapability.sResolutionRange.iWidthMax);
 //
 	CameraSetAeState(hCamera, FALSE);
-    double fExposureTime = 10000;
+    double fExposureTime = 30000;
     double pfExposureTime;
     CameraSetExposureTime(hCamera, fExposureTime);
     CameraGetExposureTime(hCamera, &pfExposureTime);
@@ -93,7 +92,7 @@ int main()
     printf("CameraSetIspOutFormat \n");
 //    sleep(1);
 
-    if(CameraSetOutPutIOMode(hCamera,1,IOMODE_GP_OUTPUT) == CAMERA_STATUS_SUCCESS)
+    if(CameraSetOutPutIOMode(hCamera,0,IOMODE_GP_OUTPUT) == CAMERA_STATUS_SUCCESS)
         printf("set gpio out put mode success!\n");
 
 
@@ -108,9 +107,11 @@ int main()
 
 	printf("make an empty gray image(%d, %d)\n",480, 640);
 	long int frame_counter = 0;
-	string roi_path = "./roi_eye/";
+	long int close_frame_counter=0;
+//	string roi_path = "./roi_eye/";
 	clock_t begin, mid, end;
-
+	float warning_time = 2.0;
+	float FPS = 7.0;
 
 while(1)
 {	begin = clock();
@@ -137,11 +138,12 @@ while(1)
 		return -1;	
 	}
 	resize_image(gray_image, gray_image_resized);
+#if DISPLAY
 	cv::Mat cv_img=toMat(gray_image_resized);
 	cv::namedWindow("temp");
 	cv::imshow("temp", cv_img);
 	cv::waitKey(10);
-
+#endif
 
 
 
@@ -181,6 +183,7 @@ while(1)
 	if (dets.size() == 0) 
 	{
 		cout<< "no face detected."<<endl;
+		close_frame_counter = 0;
 		end = clock();
 		cout << "total time: "<< double(end - begin)/CLOCKS_PER_SEC << end <<endl;
 		
@@ -217,14 +220,14 @@ while(1)
 //			for( int i = 0; i<4; ++i) {cout << "the LEFT_ROI is: " << LEFT_ROI[i] <<endl;}
 //			cout << "the size of left_roi is :" << left_roi.size() << " " << left_roi.nc() << " " << left_roi.nr() <<endl;
 	extract_image_4points(gray_image_resized, left_roi, LEFT_ROI);
-	save_png(left_roi, roi_path+to_string(frame_counter)+".png");
+//	save_png(left_roi, roi_path+to_string(frame_counter)+".png");
 	cout << "extract image time: " << double( clock()-mid ) / CLOCKS_PER_SEC << endl;
-
+#if DISPLAY
 	cv::Mat cv_left_roi= toMat(left_roi);
 	cv::namedWindow("left_roi");
 	cv::imshow("left_roi", cv_left_roi);
 	cv::waitKey(20);
-
+#endif
 	mid = clock();
 	float X[2352];
 	for(int chl=0; chl<3; chl ++)
@@ -232,27 +235,39 @@ while(1)
 			for(int wih=0; wih<28; wih++)
 			{
 				X[28*28*chl+28*het+wih] = left_roi[wih][het] /255.0;
+//				printf("X[%d] = %f",28*28*chl+28*het+wih,  X[28*28*chl+28*het+wih]);
 			}
 //			cout<< "get the network input data."<<endl;
 			cout<< "get input data: "<< double( clock()-mid ) / CLOCKS_PER_SEC << endl;
+	
+
 			mid = clock();			
 			bool predict_result = predict_class(X);
 			string result_class= predict_result?"close":"open";
+			if(predict_result)
+			{
+				close_frame_counter++;			
+			}else
+			{
+				close_frame_counter=0;			
+			}
 			
 			cout<< "predict time: "<< double( clock()-mid ) / CLOCKS_PER_SEC  <<endl;							
-			cout<< "the result is: " << result_class <<endl;		
-#if DISPLAY
-			win.clear_overlay();
-			win.set_image(gray_image_resized);
-			win.add_overlay(render_face_detections(shapes));
-			dlib::array<array2d<rgb_pixel> > face_chips;
-			extract_image_chips(gray_image_resized, get_face_chip_details(shapes), face_chips);
-			win_faces.set_image(tile_images(face_chips));
-			win_left_roi.set_image(left_roi);
-#endif			
+			cout<< "the result is: " << result_class <<endl;
+			if( warning_time < (1.0/FPS) * ( (float)close_frame_counter ) )
+			{
+				CameraSetIOState(hCamera,0,0);	
+				printf("set io to high");
+			}else
+			{
+				CameraSetIOState(hCamera,0,1);	
+				printf("set io to low");		
+			}	
+		
 			end = clock();
+			FPS = CLOCKS_PER_SEC / double(end - begin);
 			cout << "total time: " << double(end - begin)/CLOCKS_PER_SEC <<endl; 
-			cout << "FPS: " << CLOCKS_PER_SEC / double(end - begin) << endl;
+			cout << "FPS: " << FPS << endl;
 }	
 
 }
